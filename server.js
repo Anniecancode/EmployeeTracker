@@ -1,20 +1,38 @@
 // Include packages needed for this application
 const inquirer = require('inquirer')
-const fs = require ('fs');
 const mysql = require ('mysql2');
 
+require('console.table')
+
 // Connect to database
-requestAnimationFrame('dotenv').config()
+require('dotenv').config()
 
 const db = mysql.createConnection(
     {
-        host: process.env.DB_HOST,
-        user: process.env.DB_USER,
-        password: process.env.DB_PASSWORD,
+        host: 'localhost',
+        user: 'root',
+        password: '',
         database: 'company_db'
     },
     console.log(`Connected to the company_db database.`)
 )
+
+
+db.connect(function (err) {
+    if (err) throw err;
+    console.log("connected as id " + db.threadId);
+    console.log(`
+    ╔═══╗─────╔╗──────────────╔═╗╔═╗
+    ║╔══╝─────║║──────────────║║╚╝║║
+    ║╚══╦╗╔╦══╣║╔══╦╗─╔╦══╦══╗║╔╗╔╗╠══╦═╗╔══╦══╦══╦═╗
+    ║╔══╣╚╝║╔╗║║║╔╗║║─║║║═╣║═╣║║║║║║╔╗║╔╗╣╔╗║╔╗║║═╣╔╝
+    ║╚══╣║║║╚╝║╚╣╚╝║╚═╝║║═╣║═╣║║║║║║╔╗║║║║╔╗║╚╝║║═╣║
+    ╚═══╩╩╩╣╔═╩═╩══╩═╗╔╩══╩══╝╚╝╚╝╚╩╝╚╩╝╚╩╝╚╩═╗╠══╩╝
+    ───────║║──────╔═╝║─────────────────────╔═╝║
+    ───────╚╝──────╚══╝─────────────────────╚══╝`)
+    // runs the app
+    mainQuestion();
+});
 
 
 // Command line questions
@@ -24,7 +42,7 @@ const mainQuestion = () => {
         {
             type: "list",
             message: "What would you like to do?",
-            choice: ['View All Employees', 
+            choices: ['View All Employees', 
                     'Add Employee', 
                     'Update Employee Role', 
                     'View All Roles', 
@@ -39,21 +57,27 @@ const mainQuestion = () => {
             case 'View All Employees': 
             viewEmployee();
             break;
+
             case 'Add Employee': 
             addEmployee();
             break;
+
             case 'Update Employee Role': 
             updateRole();
             break;
+
             case 'View All Roles': 
             viewRole();
             break;
+
             case 'Add Role': 
             addRole();
             break;
+
             case 'View All Departments': 
             viewDepartment();
             break;
+
             case 'Add Department': 
             addDepartment();
             break;
@@ -63,7 +87,17 @@ const mainQuestion = () => {
 
 
 const viewEmployee = () => {
-    db.query('SELECT * FROM employee', function (err, results) {
+    const query = 
+    `SELECT e.id, e.first_name, e.last_name, r.title, d.name AS department, r.salary, CONCAT(m.first_name, ' ', m.last_name) AS manager
+    FROM employee e
+    LEFT JOIN role r
+      ON e.role_id = r.id
+    LEFT JOIN department d
+    ON d.id = r.department_id
+    LEFT JOIN employee m
+      ON m.id = e.manager_id`
+
+    db.query(query, function (err, results) {
         console.table(results);
       });
     mainQuestion()
@@ -87,7 +121,7 @@ const addEmployee = () => {
             type: "list",
             message: "What is the employee's role?",
             // change choices
-            choice: ['Sales', 'Salesperson', 
+            choices: ['Sales', 'Salesperson', 
                      'Lead Engineer', 'Software Engineer', 
                      'Account Manager', 'Accountant', 
                      'Legal Team Lead', 'Lawyer'
@@ -99,7 +133,7 @@ const addEmployee = () => {
             type: "list",
             message: "Who is the employee's manager?",
             // change choices
-            choice: ['None', 
+            choices: ['None', 
                      'John Doe', 'Mike Chan',
                      'Ashley Rodriguez', 'Kevin Tupik',
                      'Kunal Singh', 'Malia Brown',
@@ -112,9 +146,9 @@ const addEmployee = () => {
     then((data) => {
         db.query('INSERT INTO employee', 'VALUES', (data.firstName, data.lastName)
         ),
-        console.log(`Added ${data.firstName} ${data.lastName} to the database`)
-    }); 
-    mainQuestion()
+        console.log(`Added ${data.firstName} ${data.lastName} to the database`),
+        mainQuestion()
+    });    
 }
 
 
@@ -143,7 +177,7 @@ const addRole = () => {
             type: "list",
             message: "Which department does the role belong to?",
             // change choices
-            choice: ['Sales', 'Engineering', 'Finance', 'Legal'
+            choices: ['Sales', 'Engineering', 'Finance', 'Legal'
             // newly add department
             ],
             name: "departmentChoice"
@@ -152,9 +186,9 @@ const addRole = () => {
     .then ((data) =>{
         db.query('INSERT INTO roll', 'VALUES', (data.roleName, data.roleSalary)
         ),
-        console.log(`Added ${data.roleName} to the database`)
-    }); 
-    mainQuestion()
+        console.log(`Added ${data.roleName} to the database`),
+        mainQuestion()
+    });   
 };
 
 
@@ -178,7 +212,9 @@ const addDepartment = () => {
     .then ((data) =>{
         db.query('INSERT INTO department', 'VALUES', (data.departmentName)
         ),
-        console.log(`Added ${data.departmentName} to the database`)
+        console.log(`Added ${data.departmentName} to the database`),
+        mainQuestion()
     }); 
-    mainQuestion()
 }
+
+
