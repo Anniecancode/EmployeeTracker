@@ -52,6 +52,7 @@ const mainQuestion = () => {
             name: "task"
         },
     ])
+    // switch cases according to user's choice
     .then((choice) => {
         switch (choice.task){
             case 'View All Employees': 
@@ -86,120 +87,257 @@ const mainQuestion = () => {
 };
 
 
+// view all employees
 const viewEmployee = () => {
-    const query = 
-    `SELECT e.id, e.first_name, e.last_name, r.title, d.name AS department, r.salary, CONCAT(m.first_name, ' ', m.last_name) AS manager
+    const query =
+    `SELECT e.id, e.first_name, e.last_name, r.title, d.department_name AS department, r.salary, CONCAT(m.first_name, ' ', m.last_name) AS manager
     FROM employee e
     LEFT JOIN role r
-      ON e.role_id = r.id
+	  ON e.role_id = r.id
     LEFT JOIN department d
-    ON d.id = r.department_id
+      ON d.id = r.department_id
     LEFT JOIN employee m
+	  ON m.id = e.manager_id`
+
+    db.query(query, function (err, results) {
+        if (err) throw err;
+        console.table(results);
+        
+        mainQuestion();
+    });
+};
+
+
+// add employee
+const addEmployee = () => {
+
+    const query =
+    `SELECT r.id, r.title
+      FROM role r`
+
+    db.query(query, function (err, results) {
+        if (err) throw err;
+
+        const roleChoice = results.map(({ id, title }) => ({
+            value: id, name: `${id} ${title}`
+        }));
+ 
+        iPrompt(roleChoice)
+    });
+        
+    const iPrompt = (roleChoice) => {
+        inquirer
+        .prompt ([
+            {
+                type: "input",
+                message: "What is the employee's first name?",
+                name: "firstName"
+            },
+            {
+                type: "input",
+                message: "What is the employee's last name?",
+                name: "lastName"
+            },
+            {
+                type: "list",
+                message: "What is the employee's role?",
+                choices: roleChoice,
+                name: "roleChoice"
+            },
+            {
+                type: "list",
+                message: "Who is the employee's manager?",
+                choices: ['None', 
+                        'John Doe',
+                        'Ashely Rodriguez',
+                        'Kunal Singh',
+                        'Sarah Lourd'],
+                name: "managerChoice"
+            },
+        ])
+    
+        .then((data) => {
+            // insert user's input into mysql table
+            db.query("INSERT INTO employee SET ?", {
+                first_name: data.firstName,
+                last_name: data.lastName,
+                role_id: data.roleChoice,
+                manager_id: data.managerChoice
+            }, 
+            function(err){
+                if (err) throw err;
+                console.log(`Added ${data.firstName} ${data.lastName} to the database`);
+            });
+
+            mainQuestion();
+        });    
+    };
+}; 
+
+
+// update role
+const updateRole = () => {
+    const query =
+    `SELECT e.id, e.first_name, e.last_name, r.title, d.department_name AS department, r.salary, CONCAT(m.first_name, ' ', m.last_name) AS manager
+    FROM employee e
+    JOIN role r
+      ON e.role_id = r.id
+    JOIN department d
+      ON d.id = r.department_id
+    JOIN employee m
       ON m.id = e.manager_id`
 
     db.query(query, function (err, results) {
-        console.table(results);
-      });
-    mainQuestion()
-};
+        if (err) throw err;
 
+        const employeeChoice = results.map(({ id, first_name, last_name }) => ({
+            value: id, name: `${first_name} ${last_name}`
+        }));
+ 
+        role(employeeChoice)
+    });
 
-const addEmployee = () => {
-    inquirer
-    .prompt ([
-        {
-            type: "input",
-            message: "What is the employee's first name?",
-            name: "firstName"
-        },
-        {
-            type: "input",
-            message: "What is the employee's last name?",
-            name: "lastName"
-        },
-        {
-            type: "list",
-            message: "What is the employee's role?",
-            // change choices
-            choices: ['Sales', 'Salesperson', 
-                     'Lead Engineer', 'Software Engineer', 
-                     'Account Manager', 'Accountant', 
-                     'Legal Team Lead', 'Lawyer'
-                // newly add role
-            ],
-            name: "roleChoice"
-        },
-        {
-            type: "list",
-            message: "Who is the employee's manager?",
-            // change choices
-            choices: ['None', 
-                     'John Doe', 'Mike Chan',
-                     'Ashley Rodriguez', 'Kevin Tupik',
-                     'Kunal Singh', 'Malia Brown',
-                     'Sarah Lourd', 'Tom Allen'
-                // newly add role
-            ],
-            name: "managerChoice"
-        },
-    ])
-    then((data) => {
-        db.query('INSERT INTO employee', 'VALUES', (data.firstName, data.lastName)
-        ),
-        console.log(`Added ${data.firstName} ${data.lastName} to the database`),
-        mainQuestion()
-    });    
+    const role = (employeeChoice) => {
+        const query =
+        `SELECT r.id, r.title, r.salary 
+        FROM role r`
+
+        db.query(query, function (err, results) {
+            if (err) throw err;
+
+            const roleChoice = results.map(({ id, department_name }) => ({
+                value: id, name: `${id} ${department_name}`      
+            }));
+
+            iPrompt(employeeChoice, roleChoice)
+        })
+    };
+
+    const iPrompt = (employeeChoice, roleChoice) => {
+        inquirer
+        .prompt([
+            {
+                type: "list",
+                // change q
+                message: "Which employee do you want to set with the role?",
+                choices: employeeChoice,
+                name: "employeeChoice"
+            },
+            {
+                type: "list",
+                // change q
+                message: "Which role do you want to update?",
+                choices: roleChoice,
+                name: "roleChoice"        
+            },
+        ])
+        .then((data) => {
+            // insert user's input into mysql table
+            db.query("UPDATE employee SET role_id = ? WHERE id = ?", [
+                data.employeeChoice,
+                data.roleChoice,
+            ], 
+            function(err){
+                if (err) throw err;
+                // change sentense
+                console.log(`Added ${data.employeeChoice} updated`);
+            });
+        
+            mainQuestion();
+        });   
+    }
 }
 
 
+// view all roles
 const viewRole = () => {
-    db.query('SELECT * FROM role', function (err, results) {
+    const query =
+    // join department name to role table
+    `SELECT r.id, r.title, d.department_name AS department, r.salary
+    FROM role r
+    JOIN department d
+      ON d.id = r.department_id`
+
+    db.query(query, function (err, results) {
+        if (err) throw err;
         console.table(results);
-      });
-    mainQuestion()
+
+        mainQuestion();
+    })
 };
 
 
+// add role
 const addRole = () => {
-    inquirer
-    .prompt ([
-        {
-            type: "input",
-            message: "What is the name of the role?",
-            name: "roleName"
-        },
-        {
-            type: "input",
-            message: "What is the salary of the role?",
-            name: "roleSalary" 
-        },
-        {
-            type: "list",
-            message: "Which department does the role belong to?",
-            // change choices
-            choices: ['Sales', 'Engineering', 'Finance', 'Legal'
-            // newly add department
-            ],
-            name: "departmentChoice"
-        },
-    ])
-    .then ((data) =>{
-        db.query('INSERT INTO roll', 'VALUES', (data.roleName, data.roleSalary)
-        ),
-        console.log(`Added ${data.roleName} to the database`),
-        mainQuestion()
-    });   
+
+    // extract department names from mysql
+    const query = 
+    `SELECT d.id, d.department_name, r.salary AS budget
+    FROM employee e
+    JOIN role r
+    ON e.role_id = r.id
+    JOIN department d
+    ON d.id = r.department_id
+    GROUP BY d.id, d.department_name`
+
+    db.query(query, function (err, results) {
+        if (err) throw err;
+
+        const departmentChoice = results.map(({ id, department_name }) => ({
+            value: id, name: `${id} ${department_name}`
+          }));
+        iPrompt(departmentChoice)
+    })
+    
+    const iPrompt = (departmentChoice) => {
+       inquirer
+       .prompt ([
+            {
+                type: "input",
+                message: "What is the name of the role?",
+                name: "roleName"
+            },
+            {
+                type: "input",
+                message: "What is the salary of the role?",
+                name: "roleSalary" 
+            },
+            {
+                type: "list",
+                message: "Which department does the role belong to?",
+                choices: departmentChoice,
+                name: "departmentChoice"
+            },
+        ])
+        .then ((data) =>{
+            // insert user's input into mysql table
+            db.query("INSERT INTO role SET ?", {
+                title: data.roleName,
+                salary: data.roleSalary,
+                department_id: data.departmentChoice
+            }, 
+            function(err){
+                if (err) throw err;
+                console.log(`Added ${data.roleName} to the database`);
+            });
+        
+            mainQuestion();
+        }); 
+    }
 };
 
 
+// view all departments
 const viewDepartment = () => {
     db.query('SELECT * FROM department', function (err, results) {
         console.table(results);
-      });
-    mainQuestion()
+
+        mainQuestion();
+    })  
 };
 
 
+// add department
 const addDepartment = () => {
     inquirer
     .prompt ([
@@ -210,11 +348,18 @@ const addDepartment = () => {
         },
     ])
     .then ((data) =>{
-        db.query('INSERT INTO department', 'VALUES', (data.departmentName)
-        ),
-        console.log(`Added ${data.departmentName} to the database`),
-        mainQuestion()
-    }); 
+        // insert user's input into mysql table
+        db.query("INSERT INTO department SET ?", {
+            department_name: data.departmentName
+        }, 
+        function(err){
+            if (err) throw err;
+            console.log(`Added ${data.departmentName} to the database`);
+        });
+
+        mainQuestion();
+    })
 }
+
 
 
