@@ -5,7 +5,6 @@ const mysql = require ('mysql2');
 require('console.table')
 
 // Connect to database
-require('dotenv').config()
 
 const db = mysql.createConnection(
     {
@@ -111,9 +110,10 @@ const viewEmployee = () => {
 // add employee
 const addEmployee = () => {
 
+    // select roles from mysql table
     const query =
     `SELECT r.id, r.title
-      FROM role r`
+    FROM role r`
 
     db.query(query, function (err, results) {
         if (err) throw err;
@@ -122,10 +122,32 @@ const addEmployee = () => {
             value: id, name: `${id} ${title}`
         }));
  
-        iPrompt(roleChoice)
+        sManager(roleChoice)
     });
+
+    const sManager = (roleChoice) => {
+
+        // select employees from mysql table
+        const queryM =
+        `SELECT e.id, e.first_name, e.last_name, r.title, d.department_name AS department, r.salary
+        FROM employee e
+        JOIN role r
+          ON e.role_id = r.id
+        JOIN department d
+          ON d.id = r.department_id`
+
+        db.query(queryM, function (err, results) {
+            if (err) throw err;
+
+        const managerChoice = results.map(({ id, first_name, last_name }) => ({
+            value: id, name: `${first_name} ${last_name}`
+        }));
+ 
+        iPrompt(roleChoice, managerChoice)
+    });
+    }
         
-    const iPrompt = (roleChoice) => {
+    const iPrompt = (roleChoice, managerChoice) => {
         inquirer
         .prompt ([
             {
@@ -147,11 +169,7 @@ const addEmployee = () => {
             {
                 type: "list",
                 message: "Who is the employee's manager?",
-                choices: ['None', 
-                        'John Doe',
-                        'Ashely Rodriguez',
-                        'Kunal Singh',
-                        'Sarah Lourd'],
+                choices: managerChoice,
                 name: "managerChoice"
             },
         ])
@@ -177,15 +195,15 @@ const addEmployee = () => {
 
 // update role
 const updateRole = () => {
+
+    // select employees from mysql table
     const query =
-    `SELECT e.id, e.first_name, e.last_name, r.title, d.department_name AS department, r.salary, CONCAT(m.first_name, ' ', m.last_name) AS manager
+    `SELECT e.id, e.first_name, e.last_name, r.title, d.department_name AS department, r.salary
     FROM employee e
     JOIN role r
       ON e.role_id = r.id
     JOIN department d
-      ON d.id = r.department_id
-    JOIN employee m
-      ON m.id = e.manager_id`
+      ON d.id = r.department_id`
 
     db.query(query, function (err, results) {
         if (err) throw err;
@@ -194,10 +212,11 @@ const updateRole = () => {
             value: id, name: `${first_name} ${last_name}`
         }));
  
-        role(employeeChoice)
+        sRole(employeeChoice)
     });
 
-    const role = (employeeChoice) => {
+    // select roles from mysql table
+    const sRole = (employeeChoice) => {
         const query =
         `SELECT r.id, r.title, r.salary 
         FROM role r`
@@ -205,8 +224,8 @@ const updateRole = () => {
         db.query(query, function (err, results) {
             if (err) throw err;
 
-            const roleChoice = results.map(({ id, department_name }) => ({
-                value: id, name: `${id} ${department_name}`      
+            const roleChoice = results.map(({ id, title }) => ({
+                value: id, name: `${id} ${title}`      
             }));
 
             iPrompt(employeeChoice, roleChoice)
@@ -218,15 +237,13 @@ const updateRole = () => {
         .prompt([
             {
                 type: "list",
-                // change q
-                message: "Which employee do you want to set with the role?",
+                message: "Which employee's role do you want to update?",
                 choices: employeeChoice,
                 name: "employeeChoice"
             },
             {
                 type: "list",
-                // change q
-                message: "Which role do you want to update?",
+                message: "Which role do you want to assign the selected employee?",
                 choices: roleChoice,
                 name: "roleChoice"        
             },
@@ -234,13 +251,12 @@ const updateRole = () => {
         .then((data) => {
             // insert user's input into mysql table
             db.query("UPDATE employee SET role_id = ? WHERE id = ?", [
-                data.employeeChoice,
                 data.roleChoice,
+                data.employeeChoice,  
             ], 
             function(err){
                 if (err) throw err;
-                // change sentense
-                console.log(`Added ${data.employeeChoice} updated`);
+                console.log(`Updated ${data.employeeChoice}'s role`);
             });
         
             mainQuestion();
@@ -270,17 +286,9 @@ const viewRole = () => {
 // add role
 const addRole = () => {
 
-    // extract department names from mysql
-    const query = 
-    `SELECT d.id, d.department_name, r.salary AS budget
-    FROM employee e
-    JOIN role r
-    ON e.role_id = r.id
-    JOIN department d
-    ON d.id = r.department_id
-    GROUP BY d.id, d.department_name`
+    // select departments from mysql table
 
-    db.query(query, function (err, results) {
+    db.query("SELECT * FROM department", function (err, results) {
         if (err) throw err;
 
         const departmentChoice = results.map(({ id, department_name }) => ({
